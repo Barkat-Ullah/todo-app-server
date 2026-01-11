@@ -1,0 +1,31 @@
+model Room {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  senderId   String   @db.ObjectId
+  receiverId String   @db.ObjectId
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  //Relation
+  sender   User   @relation("RoomSender", fields: [senderId], references: [id])
+  receiver User   @relation("RoomReceiver", fields: [receiverId], references: [id])
+  chat     Chat[]
+
+  @@map("rooms")
+}
+
+model Chat {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  senderId   String   @db.ObjectId
+  receiverId String   @db.ObjectId
+  roomId     String   @db.ObjectId
+  message    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  room     Room @relation(fields: [roomId], references: [id])
+  sender   User @relation("ChatSender", fields: [senderId], references: [id])
+  receiver User @relation("ChatReceiver", fields: [receiverId], references: [id])
+
+  @@map("chats")
+}

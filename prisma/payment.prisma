@@ -1,0 +1,36 @@
+model Payment {
+    id String @id @default(auto()) @map("_id") @db.ObjectId
+
+    userId         String @db.ObjectId
+    // subscriptionId String @db.ObjectId
+
+    amount   Float
+    currency Currency      @default(usd)
+    status   PaymentStatus @default(PENDING)
+
+    paymentMethodType String?
+    cardBrand         String?
+    cardLast4         String?
+    cardExpMonth      Int?
+    cardExpYear       Int?
+
+    stripeSessionId      String? @unique
+    stripePaymentId      String? @unique
+    // stripeSubscriptionId String? @unique
+    stripeCustomerId     String?
+
+    user         User         @relation(fields: [userId], references: [id])
+    // subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("payments")
+}
+
+enum PaymentStatus {
+    PENDING
+    SUCCESS
+    FAILED
+    CANCELED
+}

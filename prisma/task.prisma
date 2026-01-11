@@ -1,0 +1,43 @@
+model Tasks {
+    id            String       @id @default(auto()) @map("_id") @db.ObjectId
+    title         String
+    description   String
+    startDate     DateTime
+    endDate       DateTime
+    time          String //"time": "19:30 AM",
+    category      TaskCategory
+    status        TaskStatus   @default(Pending)
+    isDeleted     Boolean      @default(false)
+    image         String?
+
+    userId    String   @db.ObjectId
+    user      User     @relation("taskCreator", fields: [userId], references: [id])
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("tasks")
+}
+
+enum TaskCategory {
+    office_task
+    personal_project
+    daily_study
+    health_fitness
+    family_home
+    finance_money
+    shopping_purchase
+    self_development
+    entertainment
+    travel_trip
+    appointment_meeting
+    side_hustle
+    spiritual_religious
+    maintenance_repair
+}
+
+enum TaskStatus {
+    Pending
+    Ongoing
+    Completed
+    Passed
+}

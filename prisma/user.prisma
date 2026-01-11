@@ -1,0 +1,58 @@
+model User {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  fullName    String
+  email       String       @unique
+  phoneNumber String?      @unique
+  password    String
+  role        UserRoleEnum @default(USER)
+
+  status     UserStatus @default(ACTIVE)
+  clientInfo Json?
+
+  describe String?
+  city     String?
+  address  String?
+  profile  String?
+
+  // isAgreeWithTerms Boolean
+
+  otp                           String?
+  otpExpiry                     DateTime?
+  emailVerificationToken        String?
+  emailVerificationTokenExpires String?
+
+  isEmailVerified Boolean @default(false)
+  // isApproved      Boolean @default(false)
+  isDeleted       Boolean @default(false)
+
+  stripeCustomerId String?
+  fcmToken         String?
+
+  payments Payment[]
+
+  receiver  Notification[] @relation("Receiver")
+  sender    Notification[] @relation("Sender")
+  followers Follow[]       @relation("Followers")
+  following Follow[]       @relation("Following")
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  roomSender   Room[]   @relation("RoomSender")
+  roomReceiver Room[]   @relation("RoomReceiver")
+
+  sentChats     Chat[]  @relation("ChatSender")
+  receivedChats Chat[]  @relation("ChatReceiver")
+  tasks         Tasks[] @relation("taskCreator")
+
+  @@map("users")
+}
+
+enum UserRoleEnum {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
