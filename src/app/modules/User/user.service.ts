@@ -246,7 +246,7 @@ const updateMyProfileIntoDB = async (
     updateData.profile = profileUrl;
   }
 
-  // Always update (with or without file)
+  // Always update
   const result = await prisma.user.update({
     where: { id },
     data: updateData,
