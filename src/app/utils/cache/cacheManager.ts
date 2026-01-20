@@ -12,7 +12,7 @@ export const cache = new NodeCache({
 // Cache configuration for different sections
 export const CACHE_CONFIG = {
   TASKS: {
-    ttl: 18000,
+    ttl: 1800,
     prefix: 'tasks:',
   },
   USERS: {

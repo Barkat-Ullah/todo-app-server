@@ -10,14 +10,15 @@ import AppError from '../app/errors/AppError';
 import { prisma } from '../app/utils/prisma';
 import { fileUploader } from '../app/utils/fileUploader';
 
-
-
-
 export const setupMiddlewares = (app: Application): void => {
   // CORS
   app.use(
     cors({
-      origin: ['http://localhost:3001', 'http://localhost:3000'],
+      origin: [
+        'http://localhost:3001',
+        'http://localhost:3000',
+        'http://localhost:8080',
+      ],
       allowedHeaders: [
         'Content-Type',
         'Authorization',

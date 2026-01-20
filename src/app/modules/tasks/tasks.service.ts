@@ -14,9 +14,8 @@ import {
 } from '../../utils/cache/cacheManager';
 import {
   calculateTaskStatusAndDays,
-  checkAndNotifyOverdueTasks,
-  checkAndSendDueTomorrowReminders,
   getCategoryDisplayName,
+  isTaskOverdue,
 } from './tasks.constant';
 
 const CACHE_PREFIX = CACHE_CONFIG.TASKS.prefix;
@@ -35,15 +34,16 @@ const taskCacheUpdater = new SmartCacheUpdater({
   }),
 });
 
-const autoUpdateOverdueTasks = async (userId: string) => {
+export const autoUpdateOverdueTasks = async (userId: string) => {
   const now = new Date();
+  // const todayStart = startOfDay(now);
 
-  // Find tasks that need updating
-  const tasksToUpdate = await prisma.tasks.findMany({
+  // Find potential overdue tasks (end date is today or before)
+  const potentialOverdueTasks = await prisma.tasks.findMany({
     where: {
       userId,
       status: TaskStatus.Pending,
-      endDate: { lt: now },
+      endDate: { lte: now },
       isDeleted: false,
     },
     include: {
@@ -58,17 +58,43 @@ const autoUpdateOverdueTasks = async (userId: string) => {
     },
   });
 
-  if (tasksToUpdate.length === 0) {
+  if (potentialOverdueTasks.length === 0) {
     return false;
   }
+
+  console.log(
+    `Found ${potentialOverdueTasks.length} potential overdue tasks for user ${userId}`,
+  );
+
+  // Filter tasks that are truly overdue (considering time)
+  const tasksToUpdate = potentialOverdueTasks.filter(task => {
+    const overdue = isTaskOverdue(task.endDate, task.time);
+
+    if (overdue) {
+      console.log(
+        `[${task.title}] → Overdue (Date: ${task.endDate.toLocaleDateString()}, Time: ${task.time || 'not set'})`,
+      );
+    } else {
+      console.log(
+        `[${task.title}] → NOT overdue yet (Current: ${now.toLocaleTimeString()}, Task: ${task.time})`,
+      );
+    }
+
+    return overdue;
+  });
+
+  if (tasksToUpdate.length === 0) {
+    console.log('No tasks are actually overdue yet (time not passed)');
+    return false;
+  }
+
+  // Get IDs of tasks to update
+  const taskIdsToUpdate = tasksToUpdate.map(task => task.id);
 
   // Update in database
   await prisma.tasks.updateMany({
     where: {
-      userId,
-      status: TaskStatus.Pending,
-      endDate: { lt: now },
-      isDeleted: false,
+      id: { in: taskIdsToUpdate },
     },
     data: {
       status: TaskStatus.Passed,
@@ -81,8 +107,12 @@ const autoUpdateOverdueTasks = async (userId: string) => {
     data: { ...task, status: TaskStatus.Passed },
   }));
 
-  taskCacheUpdater.batchUpdate(updates);
-  console.log(`⚡ Auto-updated ${tasksToUpdate.length} overdue tasks`);
+  const homeCacheKey = CacheKeyGenerator.byUserId(CACHE_PREFIX, userId, 'home');
+  CacheManager.delete(homeCacheKey);
+
+  console.log(
+    `⚡ Auto-updated ${tasksToUpdate.length} overdue tasks to "Passed" status`,
+  );
 
   return true;
 };
@@ -118,8 +148,12 @@ const createTasks = async (req: Request) => {
     },
   });
 
-  // ✅ Dynamic cache add
+  // ✅ Dynamic cache add for lists
   taskCacheUpdater.add(result);
+
+  // ✅ Invalidate home cache after create
+  const homeCacheKey = CacheKeyGenerator.byUserId(CACHE_PREFIX, userId, 'home');
+  CacheManager.delete(homeCacheKey);
 
   return result;
 };
@@ -129,7 +163,8 @@ type ITasksFilterRequest = {
   searchTerm?: string;
   id?: string;
   createdAt?: string;
-  status?: TaskStatus | TaskStatus[];
+  status?: string;
+  category?: string;
 };
 
 const tasksSearchAbleFields = ['title'];
@@ -139,14 +174,6 @@ const getTasksListIntoDb = async (
   filters: ITasksFilterRequest,
   userId: string,
 ) => {
-  // Notifications (non-blocking)
-  checkAndSendDueTomorrowReminders(userId).catch(err =>
-    console.error('Reminder check failed:', err),
-  );
-  checkAndNotifyOverdueTasks(userId).catch(err =>
-    console.error('Overdue check failed:', err),
-  );
-
   // Auto-update overdue tasks
   await autoUpdateOverdueTasks(userId);
 
@@ -202,6 +229,13 @@ const getTasksListIntoDb = async (
         return;
       }
 
+      if (key === 'category') {
+        const categories = Array.isArray(value) ? value : [value];
+        andConditions.push({
+          category: { in: categories },
+        });
+        return;
+      }
       if (key === 'status') {
         const statuses = Array.isArray(value) ? value : [value];
         andConditions.push({
@@ -263,14 +297,6 @@ const getTasksListByDate = async (
   userId: string,
   taskDate: string,
 ) => {
-  // Notifications
-  checkAndSendDueTomorrowReminders(userId).catch(err =>
-    console.error('Reminder check failed:', err),
-  );
-  checkAndNotifyOverdueTasks(userId).catch(err =>
-    console.error('Overdue check failed:', err),
-  );
-
   // Auto-update
   await autoUpdateOverdueTasks(userId);
 
@@ -407,10 +433,6 @@ const getTasksById = async (id: string) => {
       },
     },
   });
-
-  if (!result) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Tasks not found');
-  }
 
   CacheManager.set(cacheKey, result, CACHE_TTL);
   return result;
@@ -568,6 +590,7 @@ const updateTaskStatus = async (req: Request) => {
 // Update Task
 const updateTasksIntoDb = async (req: Request) => {
   const id = req.params.id;
+  const userId = req.user.id;
   const data = req.body.data ? JSON.parse(req.body.data) : {};
   const file = req.file;
   let image;
@@ -595,6 +618,10 @@ const updateTasksIntoDb = async (req: Request) => {
   // ✅ Dynamic cache update
   taskCacheUpdater.update(id, result);
 
+  // ✅ Invalidate home cache after update
+  const homeCacheKey = CacheKeyGenerator.byUserId(CACHE_PREFIX, userId, 'home');
+  CacheManager.delete(homeCacheKey);
+
   return result;
 };
 
@@ -605,16 +632,22 @@ const deleteTasksIntoDb = async (id: string) => {
     select: { userId: true },
   });
 
-  if (!task) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Task not found');
-  }
-
   const result = await prisma.tasks.delete({
     where: { id },
   });
 
   // ✅ Dynamic cache remove
-  taskCacheUpdater.remove(id, task.userId);
+  taskCacheUpdater.remove(id, task?.userId);
+
+  // ✅ Invalidate home cache after delete
+  if (task?.userId) {
+    const homeCacheKey = CacheKeyGenerator.byUserId(
+      CACHE_PREFIX,
+      task.userId,
+      'home',
+    );
+    CacheManager.delete(homeCacheKey);
+  }
 
   return result;
 };

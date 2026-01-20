@@ -17,7 +17,7 @@ const createTasks = catchAsync(async (req: Request, res: Response) => {
 });
 
 // get all Tasks
-const tasksFilterableFields = ['searchTerm', 'id', 'createdAt'];
+const tasksFilterableFields = ['searchTerm', 'id', 'createdAt', 'category','status'];
 const getTasksList = catchAsync(async (req: Request, res: Response) => {
   const options = pick(req.query, ['limit', 'page', 'sortBy', 'sortOrder']);
   const filters = pick(req.query, tasksFilterableFields);

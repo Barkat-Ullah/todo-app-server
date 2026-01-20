@@ -1,3 +1,4 @@
+import { NotifyType } from '@prisma/client';
 import ApiError from '../errors/AppError';
 import { prisma } from '../utils/prisma';
 import admin from 'firebase-admin';
@@ -8,6 +9,7 @@ interface CreateNotificationParams {
   title: string;
   body: string;
   referenceId?: string;
+  type: NotifyType;
 }
 
 // Send push notification
@@ -36,7 +38,7 @@ export const sendPushNotification = async (
 };
 
 export const createNotification = async (params: CreateNotificationParams) => {
-  const { receiverId, senderId, title, body, referenceId } = params;
+  const { receiverId, senderId, title, body, referenceId, type } = params;
 
   const notification = await prisma.notification.create({
     data: {
@@ -45,6 +47,7 @@ export const createNotification = async (params: CreateNotificationParams) => {
       title,
       body,
       referenceId,
+      type,
       isRead: false,
     },
     include: {

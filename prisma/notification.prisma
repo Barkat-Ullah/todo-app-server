@@ -1,11 +1,12 @@
 model Notification {
-    id          String  @id @default(auto()) @map("_id") @db.ObjectId
-    receiverId  String  @db.ObjectId
-    senderId    String? @db.ObjectId
+    id          String     @id @default(auto()) @map("_id") @db.ObjectId
+    receiverId  String     @db.ObjectId
+    senderId    String?    @db.ObjectId
     title       String
     body        String
-    isRead      Boolean @default(false)
-    referenceId String? @db.ObjectId
+    isRead      Boolean    @default(false)
+    referenceId String?    @db.ObjectId
+    type        NotifyType?
 
     receiver User  @relation("Receiver", fields: [receiverId], references: [id])
     sender   User? @relation("Sender", fields: [senderId], references: [id])
@@ -14,4 +15,9 @@ model Notification {
     updatedAt DateTime @updatedAt
 
     @@map("notifications")
+}
+
+enum NotifyType {
+    due_tomorrow
+    overdue
 }

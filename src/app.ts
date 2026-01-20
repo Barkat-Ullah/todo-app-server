@@ -13,6 +13,7 @@ import {
 
 import { rootHandler } from './shared/rootHandler';
 import { fileUploader } from './app/utils/fileUploader';
+import { startTaskNotificationScheduler } from './app/modules/tasks/task.tracker';
 // import { StripeWebHook } from './app/utils/StripeUtils';
 
 const app: Application = express();
@@ -35,6 +36,9 @@ app.post(
   fileUploader.uploadSingle, // "image",
   imageUpload,
 );
+
+// ✅ Start the task notification scheduler
+startTaskNotificationScheduler();
 
 // Root route (Better: JSON response with icon)
 //* app.get('/', (req: Request, res: Response) => {
