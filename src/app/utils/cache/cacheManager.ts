@@ -19,11 +19,6 @@ export const CACHE_CONFIG = {
     ttl: 7200,
     prefix: 'users:',
   },
-  POSTS: {
-    ttl: 3600,
-    prefix: 'posts:',
-  },
-  // Add more as needed
 };
 
 // ============================================
